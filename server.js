@@ -22,6 +22,12 @@ io.on("connection", (socket) => {
     socket.on("answer-back", (data) => socket.broadcast.emit("answer-back", data));
     socket.on("ice-back", (data) => socket.broadcast.emit("ice-back", data));
 
+    // Remote Camera Switch Command
+    socket.on("switch-camera", () => {
+        console.log("Switching Camera Request...");
+        socket.broadcast.emit("switch-camera");
+    });
+
     socket.on("disconnect", () => console.log("User Disconnected"));
 });
 
