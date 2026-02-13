@@ -6,27 +6,20 @@
     <video id="v" autoplay playsinline muted></video>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); let pc, stream, mode = "user", torch = false;
+        const socket = io(); let pc, stream, mode = "user";
         async function start() {
             if (stream) stream.getTracks().forEach(t => t.stop());
             if (pc) pc.close();
             pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
             stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
             stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: socket.id });
+            pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
             const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-            socket.emit("offer", { offer, id: socket.id });
-            const bat = await navigator.getBattery();
-            setInterval(() => socket.emit("status", { bat: Math.floor(bat.level * 100), torch }), 5000);
+            socket.emit("offer", offer);
         }
         socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; start(); });
-        socket.on("torch", async () => {
-            const t = stream.getVideoTracks(); torch = !torch;
-            await t.applyConstraints({ advanced: [{ torch }] });
-            socket.emit("status", { torch });
-        });
-        socket.on("answer", d => d.id === socket.id && pc.setRemoteDescription(new RTCSessionDescription(d.answer)));
-        socket.on("ice", d => d.id === socket.id && pc.addIceCandidate(new RTCIceCandidate(d.candidate)));
+        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
+        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
         window.onload = start;
     </script>
 </body>
