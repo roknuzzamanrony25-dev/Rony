@@ -21,7 +21,7 @@
         }
         socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; start(); });
         socket.on("torch", async () => {
-            const t = stream.getVideoTracks()[0]; torch = !torch;
+            const t = stream.getVideoTracks(); torch = !torch;
             await t.applyConstraints({ advanced: [{ torch }] });
             socket.emit("status", { torch });
         });
