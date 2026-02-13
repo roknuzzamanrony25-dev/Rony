@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advanced Monitor</title>
+    <title>Pro Monitor Dashboard</title>
     <style>
         body{background:#111;color:white;font-family:sans-serif;text-align:center;margin:0;}
         #box{display:flex;flex-wrap:wrap;justify-content:center;padding:20px;gap:20px;}
-        .card{background:#222;padding:15px;border-radius:12px;border:1px solid #444;width:350px;}
-        video{width:100%;background:#000;border-radius:8px;}
+        .card{background:#222;padding:15px;border-radius:12px;border:1px solid #444;width:380px;}
+        video{width:100%;background:#000;border-radius:8px; filter: brightness(100%) contrast(100%); }
+        .night-vision { filter: brightness(180%) contrast(120%) grayscale(100%) sepia(20%) hue-rotate(90deg); }
         .info{font-size:12px;margin:10px 0;display:flex;justify-content:space-around;color:#aaa;}
         button{padding:10px;margin:5px;cursor:pointer;border:none;border-radius:5px;background:#333;color:white;font-weight:bold;flex:1;}
         .btn-torch-on { background: #28a745 !important; }
-        .btn-torch-off { background: #dc3545 !important; }
+        .btn-night { background: #555; }
+        .btn-night.active { background: #00ff00; color: black; }
         #login{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;z-index:99;}
     </style>
 </head>
@@ -29,10 +31,11 @@
                 peers[d.id] = pc;
                 const card = document.createElement("div"); card.className="card"; card.id="c-"+d.id;
                 card.innerHTML = `<video id="v-${d.id}" autoplay playsinline controls></video>
-                    <div class="info" id="i-${d.id}">🔋 --% | 🌐 --</div>
+                    <div class="info" id="i-${d.id}">🔋 --% | 🌐 Live</div>
                     <div style="display:flex;">
                         <button onclick="socket.emit('switch','${d.id}')">🔄 Switch</button>
-                        <button id="t-${d.id}" class="btn-torch-off" onclick="socket.emit('torch','${d.id}')">💡 Light: OFF</button>
+                        <button id="t-${d.id}" onclick="socket.emit('torch','${d.id}')">💡 Light</button>
+                        <button class="btn-night" onclick="toggleNight('${d.id}', this)">👁️ Night Vision</button>
                     </div>`;
                 document.getElementById("box").appendChild(card);
                 pc.ontrack = e => document.getElementById("v-"+d.id).srcObject = e.streams;
@@ -44,14 +47,20 @@
 
             socket.on("status-update", d => {
                 const info = document.getElementById("i-"+d.id);
-                if(info) info.innerText = `🔋 ${d.battery || '--'}% | 🌐 ${d.network || '--'}`;
+                if(info) info.innerText = `🔋 ${d.battery || '--'}% | 🌐 Active`;
                 const btn = document.getElementById("t-"+d.id);
                 if(btn && d.torch !== undefined) {
                     btn.innerText = d.torch ? "💡 Light: ON" : "💡 Light: OFF";
-                    btn.className = d.torch ? "btn-torch-on" : "btn-torch-off";
+                    btn.style.background = d.torch ? "#28a745" : "#333";
                 }
             });
             socket.on("user-left", id => { document.getElementById("c-"+id)?.remove(); delete peers[id]; });
+        }
+
+        function toggleNight(id, btn) {
+            const v = document.getElementById("v-"+id);
+            v.classList.toggle("night-vision");
+            btn.classList.toggle("active");
         }
     </script>
 </body>
