@@ -17,6 +17,11 @@ io.on("connection", (socket) => {
     socket.on("switch", (id) => io.to(id).emit("switch"));
     socket.on("torch", (id) => io.to(id).emit("torch"));
     
+    // Status Updates (Light, Battery, Network)
+    socket.on("status-update", (data) => {
+        socket.broadcast.emit("status-update", { ...data, id: socket.id });
+    });
+
     socket.on("disconnect", () => socket.broadcast.emit("user-left", socket.id));
 });
 
