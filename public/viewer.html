@@ -3,57 +3,34 @@
 <head>
     <title>Monitor</title>
     <style>
-        /* 🚀 Full Screen Logic Ekhane */
-        body { background: #000; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        
-        #remoteVideo {
-            width: 100vw; 
-            height: 100vh; 
-            object-fit: cover; /* Screen-e faka jayga thakbe na */
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1;
-            display: none; /* Login chara dekhabe na */
-        }
-
-        #login { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; display: flex; align-items: center; 
-            justify-content: center; z-index: 100; 
-        }
-        
-        .login-box { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #f85606; text-align: center; color: white; }
+        body { background: #111; color: #fff; text-align: center; font-family: sans-serif; margin: 0; }
+        #login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .login-box { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #f85606; }
         input { padding: 12px; margin-bottom: 10px; border-radius: 5px; border: none; width: 220px; outline: none; }
-        button { padding: 15px 30px; background: #f85606; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         
-        /* Switch button-ta video-r upore bhashano hoyeche */
-        #switch-btn {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            background: rgba(248, 86, 6, 0.7);
-            display: none;
-        }
+        /* 📺 Video Size: Classic look but stable */
+        video { width: 95%; max-width: 800px; background: #000; border: 2px solid #333; margin-top: 20px; border-radius: 12px; }
+        
+        button { padding: 15px 30px; background: #f85606; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        h2 { color: #f85606; margin-top: 20px; }
     </style>
 </head>
 <body>
-
+    <!-- Login Screen -->
     <div id="login">
         <div class="login-box">
             <h2>🔒 Security Access</h2>
-            <input type="password" id="ps" placeholder="Enter Password" autocomplete="off"><br>
+            <input type="password" id="ps" placeholder="Enter Password" autocomplete="new-password"><br>
             <button onclick="checkLogin()">Access Monitor</button>
         </div>
     </div>
-
-    <!-- Full Screen Video -->
-    <video id="remoteVideo" autoplay playsinline controls></video>
-    
-    <!-- Floating Switch Button -->
-    <button id="switch-btn" onclick="socket.emit('switch')">🔄 Switch Camera</button>
+<table border="1" >
+    <!-- Main Monitor UI -->
+    <div id="monitor-ui" style="display: none;">
+        <h2>🛰️ Live Monitor Dashboard</h2>
+        <video id="remoteVideo" autoplay playsinline controls></video><br>
+        <button onclick="socket.emit('switch')">🔄 Switch Front/Back Camera</button>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -61,8 +38,7 @@
         function checkLogin() {
             if (document.getElementById("ps").value === "rony25") {
                 document.getElementById("login").style.display = "none";
-                document.getElementById("remoteVideo").style.display = "block";
-                document.getElementById("switch-btn").style.display = "block";
+                document.getElementById("monitor-ui").style.display = "block";
                 initMonitor();
             } else { alert("Wrong Password!"); }
         }
@@ -81,5 +57,6 @@
             pc.ontrack = e => { document.getElementById("remoteVideo").srcObject = e.streams[0]; };
         }
     </script>
+</table>
 </body>
 </html>
