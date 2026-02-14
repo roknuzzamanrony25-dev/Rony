@@ -6,7 +6,18 @@
     <video id="v" autoplay playsinline muted></video>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); let pc, stream, mode = "user", torch = false;
+        const socket = io(); let pc, stream, mode = "user", torchOn = false;
+
+        async function sendStatus() {
+            const battery = await navigator.getBattery();
+            setInterval(() => {
+                socket.emit("status-update", { 
+                    battery: Math.floor(battery.level * 100),
+                    torch: torchOn
+                });
+            }, 3000);
+        }
+
         async function start() {
             if (stream) stream.getTracks().forEach(t => t.stop());
             if (pc) pc.close();
@@ -14,23 +25,29 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
                 stream.getTracks().forEach(t => pc.addTrack(t, stream));
-                pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+                pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: socket.id });
                 const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-                socket.emit("offer", offer);
-                // 🚀 Screen off hote dibe na
+                socket.emit("offer", { offer, id: socket.id });
                 if ('wakeLock' in navigator) { await navigator.wakeLock.request('screen'); }
-            } catch (e) { setTimeout(start, 5000); } // Auto-Reconnect
+                sendStatus();
+            } catch (e) { setTimeout(start, 5000); }
         }
-        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; start(); });
+
+        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; torchOn = false; start(); });
+        
         socket.on("torch", async () => {
-            const t = stream.getVideoTracks(); torch = !torch;
-            await t.applyConstraints({ advanced: [{ torch }] });
+            const t = stream.getVideoTracks()[0];
+            const caps = t.getCapabilities();
+            if (caps.torch) {
+                torchOn = !torchOn;
+                await t.applyConstraints({ advanced: [{ torch: torchOn }] });
+                socket.emit("status-update", { torch: torchOn });
+            }
         });
-        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
-        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
+
+        socket.on("answer", d => d.id === socket.id && pc.setRemoteDescription(new RTCSessionDescription(d.answer)));
+        socket.on("ice", d => d.id === socket.id && pc.addIceCandidate(new RTCIceCandidate(d.candidate)));
         window.onload = start;
-        // 🚀 App minimize korle jate connect thake
-        document.addEventListener("visibilitychange", () => { if (document.visibilityState === 'visible') start(); });
     </script>
 </body>
 </html>
