@@ -7,58 +7,55 @@
         #login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 100; }
         .login-box { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #f85606; }
         input { padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none; width: 220px; outline: none; }
-        video { width: 90%; max-width: 750px; background: #000; border: 2px solid #333; margin-top: 20px; border-radius: 12px; box-shadow: 0 0 20px rgba(248, 86, 6, 0.2); }
-        button { padding: 15px 30px; background: #f85606; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
-        button:hover { background: #d44905; }
-        h2 { color: #f85606; margin-top: 20px; }
-        #monitor-ui { padding: 20px; }
+        video { width: 90%; max-width: 750px; background: #000; border: 2px solid #333; margin-top: 20px; border-radius: 12px; }
+        button { padding: 15px 25px; background: #f85606; color: #fff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin: 10px; }
+        .btn-switch { background: #0055ff; }
+        .btn-torch { background: #28a745; }
+        h2 { color: #f85606; }
     </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div id="login">
-    <div class="login-box">
-        <h2>🔒 Security Access</h2>
-        <p style="font-size: 12px; color: #aaa;">Enter admin password to continue</p>
-        
-        <!-- Password field: placeholder theke (rony25) muche deya hoyeche -->
-        <input type="password" id="ps" placeholder="Enter Password" autocomplete="new-password">
-        <br>
-        <button onclick="checkLogin()">Access Monitor</button>
+    <div id="login">
+        <div class="login-box">
+            <h2>🔒 Security Access</h2>
+            <input type="password" id="ps" placeholder="Enter Password" autocomplete="new-password"><br>
+            <button onclick="checkLogin()">Access Monitor</button>
+        </div>
     </div>
-</div>
 
-    <!-- Main Monitor UI -->
     <div id="monitor-ui" style="display: none;">
         <h2>🛰️ Live Surveillance Dashboard</h2>
-        <div style="position: relative; display: inline-block; width: 100%;">
-            <video id="remoteVideo" autoplay playsinline controls></video>
-        </div>
+        <video id="remoteVideo" autoplay playsinline controls></video>
         <br>
-        <button onclick="socket.emit('switch')">🔄 Switch Front/Back Camera</button>
-        <p style="color: #666; font-size: 12px; margin-top: 10px;">Status: <span id="status" style="color: green;">Connected</span></p>
+        <button class="btn-switch" onclick="socket.emit('switch')">🔄 Switch Camera</button>
+        <button id="torchBtn" class="btn-torch" onclick="toggleTorch()">💡 Light: OFF</button>
+        <p>Status: <span id="status" style="color: green;">Connected</span></p>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let socket;
+        let torchOn = false;
+
         function checkLogin() {
-            const pass = document.getElementById("ps").value;
-            if (pass === "rony25") {
+            if (document.getElementById("ps").value === "rony25") {
                 document.getElementById("login").style.display = "none";
                 document.getElementById("monitor-ui").style.display = "block";
                 initMonitor();
-            } else {
-                alert("Wrong Password! Please try again.");
-            }
+            } else { alert("Wrong Password!"); }
+        }
+
+        function toggleTorch() {
+            torchOn = !torchOn;
+            socket.emit("torch");
+            document.getElementById("torchBtn").innerText = torchOn ? "💡 Light: ON" : "💡 Light: OFF";
+            document.getElementById("torchBtn").style.background = torchOn ? "red" : "#28a745";
         }
 
         function initMonitor() {
             socket = io();
-            const pc = new RTCPeerConnection({ 
-                iceServers: [{ urls: "stun:stun.l.google.com:19302" }] 
-            });
+            const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
             socket.on("offer", async (offer) => {
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -67,21 +64,10 @@
                 socket.emit("answer", answer);
             });
 
-            socket.on("ice", c => {
-                if (c) pc.addIceCandidate(new RTCIceCandidate(c));
-            });
+            socket.on("ice", c => { if (c) pc.addIceCandidate(new RTCIceCandidate(c)); });
+            pc.onicecandidate = e => { if (e.candidate) socket.emit("ice", e.candidate); };
+            pc.ontrack = e => { document.getElementById("remoteVideo").srcObject = e.streams[0]; };
 
-            pc.onicecandidate = e => {
-                if (e.candidate) socket.emit("ice", e.candidate);
-            };
-
-            pc.ontrack = e => {
-                const remoteVideo = document.getElementById("remoteVideo");
-                if (remoteVideo.srcObject !== e.streams[0]) {
-                    remoteVideo.srcObject = e.streams[0];
-                }
-            };
-            
             socket.on('disconnect', () => {
                 document.getElementById("status").innerText = "Disconnected";
                 document.getElementById("status").style.color = "red";
