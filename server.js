@@ -1,33 +1,26 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { 
-    maxHttpBufferSize: 1e7,
-    cors: { origin: "*" }
-});
+const io = new Server(server);
 
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
     console.log("User Connected:", socket.id);
 
-    socket.on("image", (data) => {
-        socket.broadcast.emit("view-image", data);
-    });
+    // Camera signals
+    socket.on("offer", (data) => socket.broadcast.emit("offer", data));
+    socket.on("answer", (data) => socket.broadcast.emit("answer", data));
+    socket.on("ice", (data) => socket.broadcast.emit("ice", data));
 
+    // Remote Switch Camera command
     socket.on("switch", () => {
         socket.broadcast.emit("switch");
     });
 
-    socket.on("disconnect", () => {
-        console.log("User Disconnected");
-    });
+    socket.on("disconnect", () => console.log("User Disconnected"));
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+server.listen(3000, () => console.log("Server Live on http://localhost:3000"));
